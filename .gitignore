@@ -1,0 +1,26 @@
+node_modules/
+dist/
+build/
+target/
+.turbo/
+*.log
+
+# Sidecar binaries
+src-tauri/binaries/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+!.vscode/extensions.json
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Rust
+*.pdb

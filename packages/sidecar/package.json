@@ -1,0 +1,26 @@
+{
+  "name": "@my-easy-claw/sidecar",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Node.js Agent Sidecar for My-Easy-Claw",
+  "type": "module",
+  "main": "./src/index.ts",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsx build.mjs",
+    "typecheck": "tsc --noEmit",
+    "clean": "rimraf dist build"
+  },
+  "dependencies": {
+    "@my-easy-claw/shared": "workspace:*",
+    "@mariozechner/pi-agent-core": "^0.64.0",
+    "@mariozechner/pi-ai": "latest",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.5.0",
+    "rimraf": "^6.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  }
+}

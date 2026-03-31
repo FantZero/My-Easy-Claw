@@ -1,0 +1,24 @@
+{
+  "name": "my-easy-claw",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Desktop AI Agent application built with Tauri 2, Vue 3, and pi-mono",
+  "scripts": {
+    "dev": "turbo run dev --parallel",
+    "build": "turbo run build",
+    "build:sidecar": "pnpm --filter @my-easy-claw/sidecar build",
+    "build:frontend": "pnpm --filter @my-easy-claw/frontend build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "clean": "turbo run clean"
+  },
+  "devDependencies": {
+    "turbo": "^2.4.0",
+    "typescript": "^5.7.0"
+  },
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=9.0.0"
+  }
+}
