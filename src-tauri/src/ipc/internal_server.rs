@@ -58,7 +58,7 @@ impl JsonRpcResponse {
 }
 
 /// 启动仅绑定 127.0.0.1 的内部 HTTP server
-pub async fn start(app_handle: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn start(_app_handle: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let app = Router::new().route("/rpc", post(handle_rpc));
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 0));

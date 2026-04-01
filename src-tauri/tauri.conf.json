@@ -7,7 +7,7 @@
     "frontendDist": "../packages/frontend/dist",
     "devUrl": "http://localhost:1420",
     "beforeDevCommand": "pnpm --filter @my-easy-claw/frontend dev",
-    "beforeBuildCommand": "pnpm --filter @my-easy-claw/frontend build"
+    "beforeBuildCommand": "pnpm build:bundle:prepare"
   },
   "app": {
     "windows": [
@@ -46,14 +46,7 @@
   },
   "plugins": {
     "shell": {
-      "open": true,
-      "scope": {
-        "sidecar": {
-          "name": "binaries/sidecar",
-          "sidecar": true,
-          "args": true
-        }
-      }
+      "open": true
     }
   }
 }

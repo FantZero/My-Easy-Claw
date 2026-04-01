@@ -5,7 +5,7 @@ use tauri_plugin_shell::ShellExt;
 pub async fn start_sidecar(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let shell = app.shell();
 
-    let sidecar_command = shell.sidecar("binaries/sidecar").map_err(|e| {
+    let sidecar_command = shell.sidecar("sidecar").map_err(|e| {
         tracing::error!("Failed to create sidecar command: {}", e);
         e
     })?;

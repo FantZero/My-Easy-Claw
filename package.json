@@ -8,6 +8,8 @@
     "build": "turbo run build",
     "build:sidecar": "pnpm --filter @my-easy-claw/sidecar build",
     "build:frontend": "pnpm --filter @my-easy-claw/frontend build",
+    "build:bundle:prepare": "pnpm build:sidecar && pnpm --filter @my-easy-claw/frontend build",
+    "build:win": "cmd /c \"cd src-tauri && cargo tauri build --bundles nsis\"",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "clean": "turbo run clean"
