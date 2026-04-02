@@ -9,12 +9,13 @@
     "build:sidecar": "pnpm --filter @my-easy-claw/sidecar build",
     "build:frontend": "pnpm --filter @my-easy-claw/frontend build",
     "build:bundle:prepare": "pnpm build:sidecar && pnpm --filter @my-easy-claw/frontend build",
-    "build:win": "cmd /c \"cd src-tauri && cargo tauri build --bundles nsis\"",
+    "build:win": "pnpm build:bundle:prepare && pnpm tauri build --bundles nsis",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "clean": "turbo run clean"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "^2.10.1",
     "turbo": "^2.4.0",
     "typescript": "^5.7.0"
   },

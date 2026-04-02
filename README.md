@@ -259,100 +259,25 @@ my-easy-claw/
 - Node.js 22+
 - pnpm 9+
 - Rust / Cargo
-- `cargo-tauri` CLI
-- Windows WebView2 Runtime
-- Windows C++ 构建工具（建议安装 Visual Studio Build Tools）
+- Visual Studio Build Tools（C++ 桌面开发工作负载）
 
-首次进入项目后安装依赖：
+### 安装依赖
 
 ```bash
 pnpm install
 ```
 
-如果本机还没有安装 Tauri CLI：
+### 启动桌面应用
 
 ```bash
-cargo install tauri-cli --locked
-```
-
-### Windows 桌面开发启动
-
-推荐使用下面这组命令启动 Windows 桌面应用：
-
-```bash
-# 1. 先构建 sidecar 可执行文件
-pnpm build:sidecar
-
-# 2. 再启动 Tauri 桌面开发模式
-cd src-tauri
-cargo tauri dev
-```
-
-说明：
-
-- `cargo tauri dev` 会自动执行 `beforeDevCommand`，启动前端 Vite 开发服务器。
-- Rust 主进程会拉起 `src-tauri/binaries` 中的 sidecar 可执行文件，因此首次开发前需要先执行一次 `pnpm build:sidecar`。
-- 前端开发服务默认地址为 `http://localhost:1420`。
-
-### Workspace 开发命令
-
-如果你只是想单独运行 workspace 内的开发任务，可以使用：
-
-```bash
-# workspace 内部 dev 任务并行执行
-pnpm dev
-
-# 仅构建 sidecar
-pnpm build:sidecar
-
-# 仅构建 frontend
-pnpm build:frontend
+pnpm tauri dev
 ```
 
 ## 构建与打包
-
-### Windows 安装包（exe）
-
-项目根目录已提供可直接使用的 Windows 打包命令：
 
 ```bash
 pnpm build:win
 ```
 
-该命令会自动执行以下步骤：
+产物位置：`src-tauri/target/release/bundle/nsis/`
 
-1. 构建 `shared`
-2. 构建 `sidecar`
-3. 构建前端静态资源
-4. 调用 `cargo tauri build --bundles nsis`
-5. 生成 Windows 安装包
-
-默认产物位置：
-
-```bash
-# 裸可执行文件
-src-tauri/target/release/my-easy-claw.exe
-
-# Windows NSIS 安装包
-src-tauri/target/release/bundle/nsis/My Easy Claw_0.1.0_x64-setup.exe
-```
-
-### 手动构建流程
-
-如果需要手动拆开执行，可参考：
-
-```bash
-# 构建 sidecar
-pnpm build:sidecar
-
-# 构建前端
-pnpm build:frontend
-
-# 进入 Tauri 工程并打包
-cd src-tauri
-cargo tauri build --bundles nsis
-```
-
-当前 Windows 构建链路为：
-
-`shared build` → `esbuild bundle sidecar` → `pkg compile sidecar` → `copy to src-tauri/binaries` → `vite build` → `cargo tauri build` → `NSIS installer`
