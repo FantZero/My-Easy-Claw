@@ -1,5 +1,6 @@
 import { defineStore } from "pinia";
 import { ref, readonly } from "vue";
+import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import {
   WS_RECONNECT_DELAY_MS,
@@ -15,18 +16,39 @@ export const useSidecarStore = defineStore("sidecar", () => {
 
   let pingInterval: ReturnType<typeof setInterval> | null = null;
   let unlisten: (() => void) | null = null;
+  let isInitialized = false;
 
   const eventHandlers = new Map<string, Set<(data: unknown) => void>>();
 
+  interface SidecarStatus {
+    ready: boolean;
+    port: number | null;
+  }
+
   async function init() {
+    if (isInitialized) return;
+    isInitialized = true;
+
     unlisten = (await listen<{ port: number }>("sidecar-ready", (event) => {
       wsPort.value = event.payload.port;
       connectWebSocket();
     })) as unknown as () => void;
+
+    try {
+      const status = await invoke<SidecarStatus>("cmd_get_sidecar_status");
+      if (status.ready && status.port) {
+        wsPort.value = status.port;
+        connectWebSocket();
+      }
+    } catch {
+      // If the backend query fails, the event listener above still handles normal startup.
+    }
   }
 
   function connectWebSocket() {
     if (!wsPort.value) return;
+    if (ws.value?.readyState === WebSocket.OPEN) return;
+    if (ws.value?.readyState === WebSocket.CONNECTING) return;
 
     const socket = new WebSocket(`ws://127.0.0.1:${wsPort.value}`);
 
@@ -104,6 +126,7 @@ export const useSidecarStore = defineStore("sidecar", () => {
   }
 
   function cleanup() {
+    isInitialized = false;
     stopPing();
     ws.value?.close();
     ws.value = null;

@@ -17,11 +17,12 @@ export interface Message {
 }
 
 export interface ToolCallRecord {
+  id?: string;
   tool_name: string;
   input: unknown;
-  output: unknown;
-  duration_ms: number;
-  status: "success" | "error" | "cancelled";
+  output?: unknown;
+  duration_ms?: number;
+  status: "running" | "success" | "error" | "cancelled";
 }
 
 export interface ProviderConfig {
@@ -29,6 +30,7 @@ export interface ProviderConfig {
   provider: LLMProvider;
   model: string;
   base_url?: string;
+  api_key?: string;
   is_default: boolean;
 }
 
@@ -36,6 +38,7 @@ export type LLMProvider =
   | "openai"
   | "anthropic"
   | "google"
+  | "deepseek"
   | "ollama"
   | "vllm"
   | "custom";

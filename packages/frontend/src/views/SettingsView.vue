@@ -10,12 +10,14 @@ const settings = useSettingsStore();
 const provider = ref<LLMProvider>(settings.defaultProvider);
 const model = ref(settings.defaultModel);
 const baseUrl = ref(settings.baseUrl);
+const apiKey = ref(settings.apiKey);
 
 function save() {
   settings.updateProvider({
     provider: provider.value,
     model: model.value,
     base_url: baseUrl.value || undefined,
+    api_key: apiKey.value || undefined,
   });
   router.push("/");
 }
@@ -37,6 +39,7 @@ function save() {
             <option value="openai">OpenAI</option>
             <option value="anthropic">Anthropic</option>
             <option value="google">Google</option>
+            <option value="deepseek">DeepSeek</option>
             <option value="ollama">Ollama</option>
             <option value="vllm">vLLM</option>
             <option value="custom">Custom</option>
@@ -46,6 +49,11 @@ function save() {
         <label class="field">
           <span class="field-label">Model</span>
           <input v-model="model" class="field-input" placeholder="e.g. gpt-4o" />
+        </label>
+
+        <label class="field">
+          <span class="field-label">API Key</span>
+          <input v-model="apiKey" type="password" class="field-input" placeholder="sk-..." />
         </label>
 
         <label class="field">

@@ -270,6 +270,7 @@ pnpm install
 ### 启动桌面应用
 
 ```bash
+pnpm build:sidecar
 pnpm tauri dev
 ```
 

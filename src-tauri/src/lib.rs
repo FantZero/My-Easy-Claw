@@ -4,6 +4,20 @@ mod sidecar;
 
 use plugins::db;
 use tauri::Manager;
+use std::sync::Mutex;
+
+pub struct SidecarState {
+    pub port: Mutex<Option<u16>>,
+}
+
+#[tauri::command]
+fn cmd_get_sidecar_status(state: tauri::State<'_, SidecarState>) -> serde_json::Value {
+    let port = *state.port.lock().expect("sidecar state mutex poisoned");
+    serde_json::json!({
+        "ready": port.is_some(),
+        "port": port,
+    })
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -11,6 +25,9 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
+        .manage(SidecarState {
+            port: Mutex::new(None),
+        })
         .setup(|app| {
             let app_handle = app.handle().clone();
 
@@ -42,6 +59,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            cmd_get_sidecar_status,
             db::cmd_list_sessions,
             db::cmd_create_session,
             db::cmd_get_messages,

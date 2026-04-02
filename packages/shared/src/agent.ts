@@ -6,6 +6,7 @@ export type AgentEventType =
   | "turn_start"
   | "turn_end"
   | "message"
+  | "message_delta"
   | "tool_execution_start"
   | "tool_execution_end"
   | "error";
@@ -30,6 +31,19 @@ export interface ToolExecutionData {
   status: "running" | "success" | "error";
 }
 
+export interface ToolExecutionStartData {
+  tool_name: string;
+  input: unknown;
+  status: "running";
+}
+
+export interface ToolExecutionEndData {
+  tool_name: string;
+  input: unknown;
+  output: unknown;
+  status: "success" | "error";
+}
+
 // ── WebSocket 消息（Vue ↔ Node）──
 
 export interface WSMessage<T = unknown> {
@@ -41,6 +55,10 @@ export interface WSMessage<T = unknown> {
 export interface ChatRequest {
   session_id: string;
   content: string;
+  provider?: string;
+  model?: string;
+  base_url?: string;
+  api_key?: string;
   attachments?: Attachment[];
 }
 

@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from "vue";
+import { ref } from "vue";
 import { useSessionStore } from "@/stores/session";
 import { useSidecarStore } from "@/stores/sidecar";
-import type { AgentEvent } from "@my-easy-claw/shared";
 
 const session = useSessionStore();
 const sidecar = useSidecarStore();
@@ -31,6 +30,39 @@ function handleCancel() {
   session.cancelCurrentRequest();
   isStreaming.value = false;
 }
+
+function formatToolInput(input: unknown): string {
+  if (typeof input === "string") return input;
+  try {
+    return JSON.stringify(input, null, 2);
+  } catch {
+    return String(input);
+  }
+}
+
+function formatToolOutput(output: unknown): string {
+  if (output == null) return "";
+  if (typeof output === "string") return output;
+  try {
+    const str = JSON.stringify(output, null, 2);
+    return str.length > 2000 ? str.slice(0, 2000) + "\n..." : str;
+  } catch {
+    return String(output);
+  }
+}
+
+function toolStatusLabel(status: string): string {
+  switch (status) {
+    case "running":
+      return "执行中...";
+    case "success":
+      return "完成";
+    case "error":
+      return "失败";
+    default:
+      return status;
+  }
+}
 </script>
 
 <template>
@@ -40,14 +72,39 @@ function handleCancel() {
     </div>
 
     <div class="chat-messages">
-      <div
-        v-for="msg in session.messages"
-        :key="msg.id"
-        :class="['message', `message--${msg.role}`]"
-      >
-        <div class="message-role">{{ msg.role === "user" ? "你" : "助手" }}</div>
-        <div class="message-content">{{ msg.content }}</div>
-      </div>
+      <template v-for="msg in session.messages" :key="msg.id">
+        <!-- Tool execution block -->
+        <div v-if="msg.role === 'tool' && msg.tool_calls?.length" class="tool-block">
+          <div
+            v-for="tc in msg.tool_calls"
+            :key="tc.id || tc.tool_name"
+            :class="['tool-call', `tool-call--${tc.status}`]"
+          >
+            <div class="tool-call-header">
+              <span class="tool-call-icon">{{ tc.status === 'running' ? '⟳' : tc.status === 'success' ? '✓' : '✗' }}</span>
+              <span class="tool-call-name">{{ tc.tool_name }}</span>
+              <span class="tool-call-status">{{ toolStatusLabel(tc.status) }}</span>
+            </div>
+            <details v-if="tc.input != null" class="tool-call-details">
+              <summary>输入参数</summary>
+              <pre class="tool-call-code">{{ formatToolInput(tc.input) }}</pre>
+            </details>
+            <details v-if="tc.output != null && tc.status !== 'running'" class="tool-call-details" open>
+              <summary>执行结果</summary>
+              <pre class="tool-call-code">{{ formatToolOutput(tc.output) }}</pre>
+            </details>
+          </div>
+        </div>
+
+        <!-- Regular message -->
+        <div
+          v-else
+          :class="['message', `message--${msg.role}`]"
+        >
+          <div class="message-role">{{ msg.role === "user" ? "你" : "助手" }}</div>
+          <div class="message-content">{{ msg.content }}</div>
+        </div>
+      </template>
 
       <div v-if="!sidecar.isReady" class="status-banner">
         正在启动 Agent 运行时...
@@ -141,6 +198,111 @@ function handleCancel() {
   white-space: pre-wrap;
   word-break: break-word;
 }
+
+/* ── Tool execution blocks ── */
+
+.tool-block {
+  align-self: flex-start;
+  max-width: 90%;
+  width: 100%;
+}
+
+.tool-call {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+
+.tool-call--running {
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+.tool-call--success {
+  border-color: rgba(34, 197, 94, 0.2);
+}
+
+.tool-call--error {
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.tool-call-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  background: rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.tool-call-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.tool-call--running .tool-call-icon {
+  color: #3b82f6;
+  animation: spin 1s linear infinite;
+}
+
+.tool-call--success .tool-call-icon {
+  color: #22c55e;
+}
+
+.tool-call--error .tool-call-icon {
+  color: #ef4444;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.tool-call-name {
+  font-weight: 600;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.tool-call-status {
+  margin-left: auto;
+  font-size: 11px;
+  opacity: 0.5;
+}
+
+.tool-call-details {
+  padding: 0;
+}
+
+.tool-call-details summary {
+  padding: 6px 12px;
+  font-size: 12px;
+  opacity: 0.6;
+  cursor: pointer;
+  user-select: none;
+}
+
+.tool-call-details summary:hover {
+  opacity: 0.8;
+}
+
+.tool-call-code {
+  padding: 8px 12px;
+  margin: 0;
+  font-size: 12px;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: rgba(255, 255, 255, 0.7);
+  background: rgba(0, 0, 0, 0.15);
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+/* ── Status and input ── */
 
 .status-banner {
   text-align: center;

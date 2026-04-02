@@ -27,6 +27,9 @@ pub fn init_database(path: &Path) -> Result<(), rusqlite::Error> {
 fn run_migrations(conn: &Connection) -> Result<(), rusqlite::Error> {
     conn.execute_batch(
         "
+        -- v2: add api_key column if missing
+        CREATE TABLE IF NOT EXISTS _migration_version (version INTEGER);
+
         CREATE TABLE IF NOT EXISTS sessions (
             id TEXT PRIMARY KEY,
             title TEXT NOT NULL DEFAULT '新对话',
@@ -50,6 +53,7 @@ fn run_migrations(conn: &Connection) -> Result<(), rusqlite::Error> {
             provider TEXT NOT NULL,
             model TEXT NOT NULL,
             base_url TEXT,
+            api_key TEXT,
             is_default INTEGER NOT NULL DEFAULT 0
         );
 
@@ -65,6 +69,15 @@ fn run_migrations(conn: &Connection) -> Result<(), rusqlite::Error> {
         );
         ",
     )?;
+
+    // api_key 列可能在旧库中不存在，安全地添加
+    let has_api_key: bool = conn
+        .prepare("SELECT api_key FROM provider_config LIMIT 0")
+        .is_ok();
+    if !has_api_key {
+        conn.execute_batch("ALTER TABLE provider_config ADD COLUMN api_key TEXT")?;
+    }
+
     Ok(())
 }
 
@@ -93,6 +106,7 @@ pub struct ProviderConfig {
     pub provider: String,
     pub model: String,
     pub base_url: Option<String>,
+    pub api_key: Option<String>,
 }
 
 #[tauri::command]
@@ -167,7 +181,7 @@ pub fn cmd_get_messages(session_id: String) -> Result<Vec<Message>, String> {
 pub fn cmd_get_default_provider() -> Result<Option<ProviderConfig>, String> {
     let conn = get_db().lock().map_err(|e| e.to_string())?;
     let mut stmt = conn
-        .prepare("SELECT provider, model, base_url FROM provider_config WHERE is_default = 1 LIMIT 1")
+        .prepare("SELECT provider, model, base_url, api_key FROM provider_config WHERE is_default = 1 LIMIT 1")
         .map_err(|e| e.to_string())?;
 
     let result = stmt
@@ -176,6 +190,7 @@ pub fn cmd_get_default_provider() -> Result<Option<ProviderConfig>, String> {
                 provider: row.get(0)?,
                 model: row.get(1)?,
                 base_url: row.get(2)?,
+                api_key: row.get(3)?,
             })
         })
         .ok();
@@ -192,9 +207,9 @@ pub fn cmd_set_default_provider(config: ProviderConfig) -> Result<(), String> {
 
     let id = uuid::Uuid::new_v4().to_string();
     conn.execute(
-        "INSERT OR REPLACE INTO provider_config (id, provider, model, base_url, is_default) \
-         VALUES (?1, ?2, ?3, ?4, 1)",
-        params![id, config.provider, config.model, config.base_url],
+        "INSERT OR REPLACE INTO provider_config (id, provider, model, base_url, api_key, is_default) \
+         VALUES (?1, ?2, ?3, ?4, ?5, 1)",
+        params![id, config.provider, config.model, config.base_url, config.api_key],
     )
     .map_err(|e| e.to_string())?;
 

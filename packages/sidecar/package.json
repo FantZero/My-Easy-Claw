@@ -12,8 +12,8 @@
     "clean": "rimraf dist build"
   },
   "dependencies": {
-    "@mariozechner/pi-agent-core": "^0.59.0",
     "@mariozechner/pi-ai": "latest",
+    "@mariozechner/pi-coding-agent": "^0.64.0",
     "@my-easy-claw/shared": "workspace:*",
     "ws": "^8.18.0"
   },

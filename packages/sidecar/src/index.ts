@@ -1,20 +1,11 @@
 import { createWSServer } from "./ws-server.js";
-import { createRustBridge } from "./rust-bridge.js";
 import { AgentManager } from "./agent-manager.js";
-import { INTERNAL_SERVER_HOST } from "@my-easy-claw/shared";
 
 async function main() {
-  const rustHttpPort = parseInt(process.argv[2] || "0", 10);
-
-  const rustBridge = createRustBridge(
-    rustHttpPort > 0 ? `http://${INTERNAL_SERVER_HOST}:${rustHttpPort}` : null,
-  );
-
-  const agentManager = new AgentManager(rustBridge);
+  const agentManager = new AgentManager();
 
   const wsServer = await createWSServer(agentManager);
 
-  // 通过 stdout 向 Tauri 报告就绪状态和端口号
   const port = wsServer.port;
   console.log(JSON.stringify({ status: "ready", port }));
 

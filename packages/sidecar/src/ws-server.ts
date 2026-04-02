@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { WebSocketServer, WebSocket } from "ws";
 import { createServer } from "http";
 import type { AgentManager } from "./agent-manager.js";
@@ -62,7 +63,7 @@ async function handleChat(
 ) {
   const onEvent = (event: unknown) => {
     send(socket, {
-      id: crypto.randomUUID(),
+      id: randomUUID(),
       type: "event",
       payload: event,
     });
@@ -72,7 +73,7 @@ async function handleChat(
     await agentManager.chat(request, onEvent);
   } catch (err) {
     send(socket, {
-      id: crypto.randomUUID(),
+      id: randomUUID(),
       type: "event",
       payload: {
         type: "error",
