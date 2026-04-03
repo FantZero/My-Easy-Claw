@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from "vue";
+import { ref, computed, watch, nextTick } from "vue";
 import { useSessionStore } from "@/stores/session";
 import { useSidecarStore } from "@/stores/sidecar";
 import { useSettingsStore } from "@/stores/settings";
@@ -9,6 +9,31 @@ const sidecar = useSidecarStore();
 const settings = useSettingsStore();
 const inputText = ref("");
 const isStreaming = ref(false);
+const copiedMessageId = ref<string | null>(null);
+const messagesContainer = ref<HTMLElement | null>(null);
+
+function scrollToBottom() {
+  nextTick(() => {
+    const el = messagesContainer.value;
+    if (el) {
+      el.scrollTop = el.scrollHeight;
+    }
+  });
+}
+
+watch(
+  () => session.messages.length,
+  () => scrollToBottom(),
+);
+
+watch(
+  () => {
+    const msgs = session.messages;
+    const last = msgs[msgs.length - 1];
+    return last?.content?.length ?? 0;
+  },
+  () => scrollToBottom(),
+);
 
 const settingsReady = computed(() => {
   if (["ollama", "vllm"].includes(settings.defaultProvider)) return true;
@@ -36,6 +61,20 @@ function handleKeydown(e: KeyboardEvent) {
 function handleCancel() {
   session.cancelCurrentRequest();
   isStreaming.value = false;
+}
+
+async function handleCopyMessage(id: string, content: string) {
+  try {
+    await navigator.clipboard.writeText(content);
+    copiedMessageId.value = id;
+    window.setTimeout(() => {
+      if (copiedMessageId.value === id) {
+        copiedMessageId.value = null;
+      }
+    }, 1500);
+  } catch (error) {
+    console.error("Failed to copy message", error);
+  }
 }
 
 function formatToolInput(input: unknown): string {
@@ -78,7 +117,7 @@ function toolStatusLabel(status: string): string {
       <h2 class="chat-title">{{ session.currentSession?.title ?? "新对话" }}</h2>
     </div>
 
-    <div class="chat-messages">
+    <div ref="messagesContainer" class="chat-messages">
       <template v-for="msg in session.messages" :key="msg.id">
         <!-- Tool execution block -->
         <div v-if="msg.role === 'tool' && msg.tool_calls?.length" class="tool-block">
@@ -106,10 +145,34 @@ function toolStatusLabel(status: string): string {
         <!-- Regular message -->
         <div
           v-else
-          :class="['message', `message--${msg.role}`]"
+          :class="['message-wrap', `message-wrap--${msg.role}`]"
         >
-          <div class="message-role">{{ msg.role === "user" ? "你" : "助手" }}</div>
-          <div class="message-content">{{ msg.content }}</div>
+          <div :class="['message', `message--${msg.role}`]">
+            <div class="message-role">{{ msg.role === "user" ? "你" : "助手" }}</div>
+            <div class="message-content">{{ msg.content }}</div>
+          </div>
+          <div class="message-actions">
+            <button
+              :class="['message-copy-btn', { 'message-copy-btn--copied': copiedMessageId === msg.id }]"
+              type="button"
+              :aria-label="copiedMessageId === msg.id ? '已复制' : '复制消息'"
+              :title="copiedMessageId === msg.id ? '已复制' : '复制消息'"
+              @click="handleCopyMessage(msg.id, msg.content)"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <rect x="9" y="3" width="11" height="14" rx="3" />
+                <rect x="4" y="8" width="11" height="14" rx="3" />
+              </svg>
+            </button>
+          </div>
         </div>
       </template>
 
@@ -182,20 +245,31 @@ function toolStatusLabel(status: string): string {
 }
 
 .message {
-  max-width: 85%;
   padding: 12px 16px;
   border-radius: 12px;
   line-height: 1.6;
 }
 
-.message--user {
+.message-wrap {
+  max-width: 85%;
+  display: flex;
+  flex-direction: column;
+}
+
+.message-wrap--user {
   align-self: flex-end;
+}
+
+.message-wrap--assistant {
+  align-self: flex-start;
+}
+
+.message--user {
   background: var(--color-primary);
   color: #fff;
 }
 
 .message--assistant {
-  align-self: flex-start;
   background: var(--color-surface);
 }
 
@@ -211,6 +285,53 @@ function toolStatusLabel(status: string): string {
   font-size: 14px;
   white-space: pre-wrap;
   word-break: break-word;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.message-actions {
+  margin-top: 6px;
+  display: flex;
+  justify-content: flex-end;
+  padding-right: 2px;
+}
+
+.message-copy-btn {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.48);
+  cursor: pointer;
+  transition: color 0.15s, background-color 0.15s, transform 0.15s;
+}
+
+.message-copy-btn svg {
+  width: 21px;
+  height: 21px;
+}
+
+.message-copy-btn:hover {
+  color: rgba(255, 255, 255, 0.72);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.message-copy-btn:active {
+  transform: scale(0.96);
+}
+
+.message-copy-btn:focus-visible {
+  outline: 2px solid rgba(59, 130, 246, 0.55);
+  outline-offset: 2px;
+}
+
+.message-copy-btn--copied {
+  color: #60a5fa;
+  background: rgba(59, 130, 246, 0.12);
 }
 
 /* ── Tool execution blocks ── */
@@ -314,6 +435,8 @@ function toolStatusLabel(status: string): string {
   background: rgba(0, 0, 0, 0.15);
   max-height: 300px;
   overflow-y: auto;
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 /* ── Status and input ── */

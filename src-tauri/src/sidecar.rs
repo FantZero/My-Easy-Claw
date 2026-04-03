@@ -20,18 +20,48 @@ fn resolve_sidecar_script(app: &AppHandle) -> std::path::PathBuf {
     dev_path
 }
 
+#[cfg(target_os = "windows")]
+fn node_compatible_script_path(path: &std::path::Path) -> std::ffi::OsString {
+    use std::path::{Component, PathBuf, Prefix};
+
+    let mut components = path.components();
+
+    if let Some(Component::Prefix(prefix)) = components.next() {
+        if let Prefix::VerbatimDisk(drive) = prefix.kind() {
+            let mut normalized = PathBuf::from(format!("{}:\\", drive as char));
+            for component in components {
+                if !matches!(component, Component::RootDir) {
+                    normalized.push(component.as_os_str());
+                }
+            }
+            return normalized.into_os_string();
+        }
+    }
+
+    path.as_os_str().to_owned()
+}
+
+#[cfg(not(target_os = "windows"))]
+fn node_compatible_script_path(path: &std::path::Path) -> std::ffi::OsString {
+    path.as_os_str().to_owned()
+}
+
 /// 启动 Node.js Sidecar 进程，监听其 stdout 获取就绪信号和端口号。
 pub async fn start_sidecar(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
     let script_path = resolve_sidecar_script(app);
+    let script_arg = node_compatible_script_path(&script_path);
 
     if !script_path.exists() {
         return Err(format!("Sidecar script not found: {}", script_path.display()).into());
     }
 
-    tracing::info!("Starting sidecar: node {}", script_path.display());
+    tracing::info!(
+        "Starting sidecar: node {}",
+        std::path::PathBuf::from(&script_arg).display()
+    );
 
     let mut cmd = Command::new("node");
-    cmd.arg(&script_path)
+    cmd.arg(&script_arg)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
 

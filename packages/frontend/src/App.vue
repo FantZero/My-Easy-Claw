@@ -8,14 +8,31 @@ const sidecar = useSidecarStore();
 const settings = useSettingsStore();
 const session = useSessionStore();
 
+function flushSessionPersistence() {
+  void session.flushPersistence();
+}
+
+function handleVisibilityChange() {
+  if (document.visibilityState === "hidden") {
+    flushSessionPersistence();
+  }
+}
+
 onMounted(() => {
   sidecar.init();
   settings.loadSettings();
-  session.loadSessions();
+  void session.loadSessions();
+  window.addEventListener("beforeunload", flushSessionPersistence);
+  window.addEventListener("pagehide", flushSessionPersistence);
+  document.addEventListener("visibilitychange", handleVisibilityChange);
 });
 
 onUnmounted(() => {
+  flushSessionPersistence();
   sidecar.cleanup();
+  window.removeEventListener("beforeunload", flushSessionPersistence);
+  window.removeEventListener("pagehide", flushSessionPersistence);
+  document.removeEventListener("visibilitychange", handleVisibilityChange);
 });
 </script>
 

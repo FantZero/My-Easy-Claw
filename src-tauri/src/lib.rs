@@ -3,6 +3,7 @@ mod plugins;
 mod sidecar;
 
 use plugins::db;
+use plugins::shell_ext;
 use tauri::Manager;
 use std::sync::Mutex;
 
@@ -21,6 +22,7 @@ fn cmd_get_sidecar_status(state: tauri::State<'_, SidecarState>) -> serde_json::
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    shell_ext::initialize_process_shell_path();
     tracing_subscriber::fmt::init();
 
     tauri::Builder::default()
@@ -63,6 +65,7 @@ pub fn run() {
             db::cmd_list_sessions,
             db::cmd_create_session,
             db::cmd_get_messages,
+            db::cmd_upsert_message,
             db::cmd_get_default_provider,
             db::cmd_set_default_provider,
         ])

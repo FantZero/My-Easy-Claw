@@ -81,6 +81,20 @@ fn run_migrations(conn: &Connection) -> Result<(), rusqlite::Error> {
     Ok(())
 }
 
+fn derive_session_title(content: &str) -> String {
+    let trimmed = content.trim();
+    if trimmed.is_empty() {
+        return "新对话".to_string();
+    }
+
+    let mut title = trimmed.lines().next().unwrap_or(trimmed).trim().to_string();
+    let max_chars = 24;
+    if title.chars().count() > max_chars {
+        title = title.chars().take(max_chars).collect::<String>() + "...";
+    }
+    title
+}
+
 // ── Tauri Commands ──
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -175,6 +189,49 @@ pub fn cmd_get_messages(session_id: String) -> Result<Vec<Message>, String> {
         .collect();
 
     Ok(messages)
+}
+
+#[tauri::command]
+pub fn cmd_upsert_message(message: Message) -> Result<(), String> {
+    let conn = get_db().lock().map_err(|e| e.to_string())?;
+
+    conn.execute(
+        "INSERT INTO messages (id, session_id, role, content, tool_calls, timestamp)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+         ON CONFLICT(id) DO UPDATE SET
+           session_id = excluded.session_id,
+           role = excluded.role,
+           content = excluded.content,
+           tool_calls = excluded.tool_calls,
+           timestamp = excluded.timestamp",
+        params![
+            &message.id,
+            &message.session_id,
+            &message.role,
+            &message.content,
+            &message.tool_calls,
+            message.timestamp
+        ],
+    )
+    .map_err(|e| e.to_string())?;
+
+    conn.execute(
+        "UPDATE sessions SET updated_at = ?2 WHERE id = ?1",
+        params![message.session_id, message.timestamp],
+    )
+    .map_err(|e| e.to_string())?;
+
+    if message.role == "user" {
+        conn.execute(
+            "UPDATE sessions
+             SET title = ?2
+             WHERE id = ?1 AND (title = '新对话' OR title = '')",
+            params![message.session_id, derive_session_title(&message.content)],
+        )
+        .map_err(|e| e.to_string())?;
+    }
+
+    Ok(())
 }
 
 #[tauri::command]
