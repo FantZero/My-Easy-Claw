@@ -1,12 +1,19 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, computed } from "vue";
 import { useSessionStore } from "@/stores/session";
 import { useSidecarStore } from "@/stores/sidecar";
+import { useSettingsStore } from "@/stores/settings";
 
 const session = useSessionStore();
 const sidecar = useSidecarStore();
+const settings = useSettingsStore();
 const inputText = ref("");
 const isStreaming = ref(false);
+
+const settingsReady = computed(() => {
+  if (["ollama", "vllm"].includes(settings.defaultProvider)) return true;
+  return !!settings.apiKey;
+});
 
 function handleSend() {
   const content = inputText.value.trim();
@@ -109,15 +116,22 @@ function toolStatusLabel(status: string): string {
       <div v-if="!sidecar.isReady" class="status-banner">
         正在启动 Agent 运行时...
       </div>
+      <div v-else-if="!session.messages.length" class="status-banner">
+        <template v-if="!settingsReady">
+          请先前往 <router-link to="/settings" class="settings-link">设置</router-link> 配置 LLM Provider 和 API Key
+        </template>
+        <template v-else>
+          开始新对话吧
+        </template>
+      </div>
     </div>
 
     <div class="chat-input-area">
       <textarea
         v-model="inputText"
         class="chat-input"
-        placeholder="输入消息... (Enter 发送, Shift+Enter 换行)"
+        :placeholder="sidecar.isReady ? '输入消息... (Enter 发送, Shift+Enter 换行)' : '正在连接 Agent 运行时...'"
         rows="3"
-        :disabled="!sidecar.isReady"
         @keydown="handleKeydown"
       />
       <div class="chat-actions">
@@ -309,6 +323,12 @@ function toolStatusLabel(status: string): string {
   padding: 12px;
   font-size: 13px;
   opacity: 0.5;
+}
+
+.settings-link {
+  color: var(--color-primary);
+  text-decoration: underline;
+  cursor: pointer;
 }
 
 .chat-input-area {

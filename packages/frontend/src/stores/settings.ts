@@ -18,7 +18,7 @@ export const useSettingsStore = defineStore("settings", () => {
 
   async function loadSettings() {
     try {
-      const config = await invoke<ProviderUpdate>("db_get_default_provider");
+      const config = await invoke<ProviderUpdate>("cmd_get_default_provider");
       if (config) {
         defaultProvider.value = config.provider;
         defaultModel.value = config.model;
@@ -37,7 +37,7 @@ export const useSettingsStore = defineStore("settings", () => {
     apiKey.value = update.api_key ?? "";
 
     try {
-      await invoke("db_set_default_provider", { config: update });
+      await invoke("cmd_set_default_provider", { config: update });
     } catch (e) {
       console.error("Failed to save provider settings:", e);
     }

@@ -16,6 +16,8 @@ export async function createWSServer(
   const wss = new WebSocketServer({ server });
 
   wss.on("connection", (socket) => {
+    console.log(`[ws] client connected`);
+
     socket.on("message", async (raw) => {
       let msg: WSMessage;
       try {
@@ -23,6 +25,8 @@ export async function createWSServer(
       } catch {
         return;
       }
+
+      console.log(`[ws] recv: type=${msg.type}`);
 
       switch (msg.type) {
         case "chat":
@@ -37,6 +41,10 @@ export async function createWSServer(
           send(socket, { id: msg.id, type: "pong", payload: null });
           break;
       }
+    });
+
+    socket.on("close", () => {
+      console.log(`[ws] client disconnected`);
     });
   });
 

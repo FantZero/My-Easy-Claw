@@ -29,7 +29,7 @@ export const useSessionStore = defineStore("session", () => {
 
   async function loadSessions() {
     try {
-      sessions.value = await invoke<Session[]>("db_list_sessions");
+      sessions.value = await invoke<Session[]>("cmd_list_sessions");
     } catch {
       sessions.value = [];
     }
@@ -46,7 +46,7 @@ export const useSessionStore = defineStore("session", () => {
     };
 
     try {
-      await invoke("db_create_session", { session });
+      await invoke("cmd_create_session", { session });
       sessions.value.unshift(session);
       currentSessionId.value = id;
       messages.value = [];
@@ -58,7 +58,7 @@ export const useSessionStore = defineStore("session", () => {
   async function selectSession(id: string) {
     currentSessionId.value = id;
     try {
-      messages.value = await invoke<Message[]>("db_get_messages", {
+      messages.value = await invoke<Message[]>("cmd_get_messages", {
         sessionId: id,
       });
     } catch {

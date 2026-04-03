@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { useSettingsStore } from "@/stores/settings";
 import type { LLMProvider } from "@my-easy-claw/shared";
@@ -12,8 +12,16 @@ const model = ref(settings.defaultModel);
 const baseUrl = ref(settings.baseUrl);
 const apiKey = ref(settings.apiKey);
 
-function save() {
-  settings.updateProvider({
+onMounted(async () => {
+  await settings.loadSettings();
+  provider.value = settings.defaultProvider;
+  model.value = settings.defaultModel;
+  baseUrl.value = settings.baseUrl;
+  apiKey.value = settings.apiKey;
+});
+
+async function save() {
+  await settings.updateProvider({
     provider: provider.value,
     model: model.value,
     base_url: baseUrl.value || undefined,

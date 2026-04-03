@@ -202,12 +202,12 @@ pub fn cmd_get_default_provider() -> Result<Option<ProviderConfig>, String> {
 pub fn cmd_set_default_provider(config: ProviderConfig) -> Result<(), String> {
     let conn = get_db().lock().map_err(|e| e.to_string())?;
 
-    conn.execute("UPDATE provider_config SET is_default = 0", [])
+    conn.execute("DELETE FROM provider_config WHERE is_default = 1", [])
         .map_err(|e| e.to_string())?;
 
     let id = uuid::Uuid::new_v4().to_string();
     conn.execute(
-        "INSERT OR REPLACE INTO provider_config (id, provider, model, base_url, api_key, is_default) \
+        "INSERT INTO provider_config (id, provider, model, base_url, api_key, is_default) \
          VALUES (?1, ?2, ?3, ?4, ?5, 1)",
         params![id, config.provider, config.model, config.base_url, config.api_key],
     )

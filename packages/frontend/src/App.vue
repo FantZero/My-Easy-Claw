@@ -1,11 +1,17 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted } from "vue";
 import { useSidecarStore } from "@/stores/sidecar";
+import { useSettingsStore } from "@/stores/settings";
+import { useSessionStore } from "@/stores/session";
 
 const sidecar = useSidecarStore();
+const settings = useSettingsStore();
+const session = useSessionStore();
 
 onMounted(() => {
   sidecar.init();
+  settings.loadSettings();
+  session.loadSessions();
 });
 
 onUnmounted(() => {

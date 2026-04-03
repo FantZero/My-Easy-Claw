@@ -1,8 +1,102 @@
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { join } from "node:path";
+import { homedir } from "node:os";
+
+function log(msg: string, ...args: unknown[]) {
+  const ts = new Date().toISOString().slice(11, 23);
+  console.log(`[${ts}] [sidecar] ${msg}`, ...args);
+}
+
+/**
+ * Windows 上查找真正的 Git Bash（排除 WSL 的 bash.exe）。
+ * 查找顺序：标准安装 → Scoop → PATH（过滤 System32/WindowsApps）
+ */
+function findGitBash(): string | null {
+  if (process.platform !== "win32") return null;
+
+  const candidates: string[] = [];
+
+  const pf = process.env["ProgramFiles"];
+  if (pf) candidates.push(`${pf}\\Git\\bin\\bash.exe`);
+
+  const pf86 = process.env["ProgramFiles(x86)"];
+  if (pf86) candidates.push(`${pf86}\\Git\\bin\\bash.exe`);
+
+  const home = process.env["USERPROFILE"];
+  if (home) candidates.push(`${home}\\scoop\\apps\\git\\current\\bin\\bash.exe`);
+
+  for (const p of candidates) {
+    if (existsSync(p)) return p;
+  }
+
+  try {
+    const out = execFileSync("where", ["bash.exe"], {
+      encoding: "utf-8",
+      timeout: 5000,
+    });
+    for (const line of out.split(/\r?\n/)) {
+      const p = line.trim();
+      if (!p) continue;
+      const lower = p.toLowerCase();
+      if (lower.includes("\\system32\\") || lower.includes("\\windowsapps\\"))
+        continue;
+      if (existsSync(p)) return p;
+    }
+  } catch {
+    // ignore
+  }
+
+  return null;
+}
+
+/**
+ * Ensure pi-coding-agent uses Git Bash on Windows.
+ *
+ * getShellConfig() in pi-coding-agent reads shellPath from ~/.pi/agent/settings.json
+ * and has a module-level cache. Neither settingsManager nor custom tools passed to
+ * createAgentSession can override it. We write directly to the settings file
+ * so getShellConfig() picks up the correct path on first call.
+ */
+function ensureGitBashInSettings(): void {
+  if (process.platform !== "win32") return;
+
+  const bashPath = findGitBash();
+  if (!bashPath) {
+    log("Git Bash not found, using pi-coding-agent default shell");
+    return;
+  }
+
+  const agentDir = join(homedir(), ".pi", "agent");
+  const settingsPath = join(agentDir, "settings.json");
+
+  try {
+    let settings: Record<string, unknown> = {};
+    if (existsSync(settingsPath)) {
+      settings = JSON.parse(readFileSync(settingsPath, "utf-8"));
+    }
+
+    if (settings.shellPath === bashPath) {
+      log("settings.json already has shellPath: %s", bashPath);
+      return;
+    }
+
+    settings.shellPath = bashPath;
+
+    mkdirSync(agentDir, { recursive: true });
+    writeFileSync(settingsPath, JSON.stringify(settings, null, 2), "utf-8");
+    log("Wrote shellPath to %s → %s", settingsPath, bashPath);
+  } catch (err) {
+    log("Failed to write shellPath to settings.json: %s", (err as Error).message);
+  }
+}
+
+ensureGitBashInSettings();
+
 import {
   createAgentSession,
   AuthStorage,
   SessionManager,
-  createCodingTools,
 } from "@mariozechner/pi-coding-agent";
 import { getModel } from "@mariozechner/pi-ai";
 import type { Api, Model } from "@mariozechner/pi-ai";
@@ -21,27 +115,30 @@ function resolveModel(
   modelId: string,
   baseUrl?: string,
 ): Model<Api> {
-  try {
-    const model = getModel(provider as never, modelId as never) as Model<Api>;
+  const model = getModel(provider as never, modelId as never) as
+    | Model<Api>
+    | undefined;
+
+  if (model) {
     if (baseUrl) return { ...model, baseUrl };
     return model;
-  } catch {
-    return {
-      id: modelId,
-      name: modelId,
-      api: "openai-completions" as Api,
-      provider,
-      baseUrl:
-        baseUrl ||
-        DEFAULT_BASE_URLS[provider] ||
-        "https://api.openai.com/v1",
-      reasoning: false,
-      input: ["text"],
-      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-      contextWindow: 128_000,
-      maxTokens: 16_384,
-    };
   }
+
+  return {
+    id: modelId,
+    name: modelId,
+    api: "openai-completions" as Api,
+    provider,
+    baseUrl:
+      baseUrl ||
+      DEFAULT_BASE_URLS[provider] ||
+      "https://api.openai.com/v1",
+    reasoning: false,
+    input: ["text"],
+    cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+    contextWindow: 128_000,
+    maxTokens: 16_384,
+  };
 }
 
 interface PiSessionHandle {
@@ -63,6 +160,9 @@ export class AgentManager {
     const { session_id, content } = request;
     const provider = request.provider ?? "openai";
     const modelName = request.model ?? "gpt-4o";
+
+    log("chat start | session=%s provider=%s model=%s", session_id, provider, modelName);
+    log("user prompt: %s", content.length > 200 ? content.slice(0, 200) + "..." : content);
 
     if (!request.api_key && !["ollama", "vllm"].includes(provider)) {
       this.emitError(
@@ -93,16 +193,18 @@ export class AgentManager {
 
         const model = resolveModel(provider, modelName, request.base_url);
 
+        log("creating new agent session (cwd: %s)", this.cwd);
+
         const { session } = await createAgentSession({
           cwd: this.cwd,
           model: model as never,
           authStorage,
-          tools: createCodingTools(this.cwd),
           sessionManager: SessionManager.inMemory(),
         });
 
         piSession = session as unknown as PiSessionHandle;
         this.piSessions.set(session_id, piSession);
+        log("agent session created");
       }
 
       const unsubscribe = piSession.subscribe((event: unknown) => {
@@ -119,6 +221,7 @@ export class AgentManager {
       }
     } catch (err) {
       hasError = true;
+      log("chat error: %s", (err as Error).message);
       onEvent({
         type: "error",
         session_id,
@@ -130,6 +233,7 @@ export class AgentManager {
       });
     }
 
+    log("chat end | session=%s hasError=%s", session_id, hasError);
     onEvent({
       type: "agent_end",
       session_id,
@@ -175,6 +279,7 @@ export class AgentManager {
         break;
 
       case "tool_execution_start":
+        log("tool_start: %s | input: %s", event.toolName, JSON.stringify(event.args)?.slice(0, 300));
         onEvent({
           type: "tool_execution_start",
           session_id: sessionId,
@@ -187,7 +292,9 @@ export class AgentManager {
         });
         break;
 
-      case "tool_execution_end":
+      case "tool_execution_end": {
+        const outputPreview = JSON.stringify(event.result)?.slice(0, 500);
+        log("tool_end: %s | status: %s | output: %s", event.toolName, event.isError ? "error" : "success", outputPreview);
         onEvent({
           type: "tool_execution_end",
           session_id: sessionId,
@@ -202,6 +309,7 @@ export class AgentManager {
           timestamp: Date.now(),
         });
         break;
+      }
     }
   }
 

@@ -35,8 +35,8 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "externalBin": [
-      "binaries/sidecar"
+    "resources": [
+      "binaries/sidecar.mjs"
     ],
     "windows": {
       "nsis": {

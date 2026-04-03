@@ -6,16 +6,6 @@
   "permissions": [
     "core:default",
     "shell:allow-execute",
-    "shell:allow-open",
-    {
-      "identifier": "shell:allow-spawn",
-      "allow": [
-        {
-          "name": "sidecar",
-          "sidecar": true,
-          "args": true
-        }
-      ]
-    }
+    "shell:allow-open"
   ]
 }
